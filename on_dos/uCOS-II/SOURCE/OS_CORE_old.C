@@ -182,38 +182,20 @@ void  OSIntExit (void)
             OSIntNesting--;
         }
         if ((OSIntNesting == 0) && (OSLockNesting == 0)) { /* Reschedule only if all ISRs complete ... */
-            
-            // original compute priority  
-            // OSIntExitY    = OSUnMapTbl[OSRdyGrp];          /* ... and not locked.                      */
-            // OSPrioHighRdy = (INT8U)((OSIntExitY << 3) + OSUnMapTbl[OSRdyTbl[OSIntExitY]]);
-            
-            // compute highest priority task
-
-
+            OSIntExitY    = OSUnMapTbl[OSRdyGrp];          /* ... and not locked.                      */
+            OSPrioHighRdy = (INT8U)((OSIntExitY << 3) + OSUnMapTbl[OSRdyTbl[OSIntExitY]]);
             if (OSPrioHighRdy != OSPrioCur) {              /* No Ctx Sw if current task is highest rdy */
                 OSTCBHighRdy  = OSTCBPrioTbl[OSPrioHighRdy];
-                // need change OSTCBHighRdy this variable, for OSIntCtSw need it to change somthing
                 OSCtxSwCtr++;                              /* Keep track of the number of ctx switches */
-
+                
                 // print preempt here
-                if(OSTCBCur->computeticks > 0){
-                    event[BufferIndex] = 'p';
-                    from[BufferIndex] = OSPrioCur;
-                    to[BufferIndex] = OSPrioHighRdy;
-                    TimeTick[BufferIndex] = OSTimeGet();
-                    if(OSTCBCur->violate == 1)
-                        v[BufferIndex] = 'v';
-                }
-                else{
-                    event[BufferIndex] = 'c';
-                    from[BufferIndex] = OSPrioCur;
-                    to[BufferIndex] = OSPrioHighRdy;
-                    TimeTick[BufferIndex] = OSTimeGet();
-                    if(OSTCBCur->violate == 1)
-                        v[BufferIndex] = 'v';
-                }
-                BufferIndex++;
-                BufferIndex %= 511;
+                TimeTick[index] = OSTime;
+                event[index] = 'p';
+                from[index] = OSPrioCur;
+                to[index] = OSPrioHighRdy;
+                v[index] = 'n';
+                index++;
+                index %= 256; 
                 OSIntCtxSw();                              /* Perform interrupt level ctx switch       */
             }
         }
@@ -324,13 +306,9 @@ void  OSStart (void)
 
 
     if (OSRunning == FALSE) {
-        // original compute priority
-        // y             = OSUnMapTbl[OSRdyGrp];        /* Find highest priority's task priority number   */
-        // x             = OSUnMapTbl[OSRdyTbl[y]];
-        // OSPrioHighRdy = (INT8U)((y << 3) + x);
-        
-        // compute highest task
-
+        y             = OSUnMapTbl[OSRdyGrp];        /* Find highest priority's task priority number   */
+        x             = OSUnMapTbl[OSRdyTbl[y]];
+        OSPrioHighRdy = (INT8U)((y << 3) + x);
         OSPrioCur     = OSPrioHighRdy;
         OSTCBHighRdy  = OSTCBPrioTbl[OSPrioHighRdy]; /* Point to highest priority task ready to run    */
         OSTCBCur      = OSTCBHighRdy;
@@ -912,24 +890,20 @@ void  OS_Sched (void)
 
     OS_ENTER_CRITICAL();
     if ((OSIntNesting == 0) && (OSLockNesting == 0)) { /* Sched. only if all ISRs done & not locked    */
-        // original compute priority 
-        // y             = OSUnMapTbl[OSRdyGrp];          /* Get pointer to HPT ready to run              */
-        // OSPrioHighRdy = (INT8U)((y << 3) + OSUnMapTbl[OSRdyTbl[y]]);
-        
-        // compute highest priority task
-        
+        y             = OSUnMapTbl[OSRdyGrp];          /* Get pointer to HPT ready to run              */
+        OSPrioHighRdy = (INT8U)((y << 3) + OSUnMapTbl[OSRdyTbl[y]]);
         if (OSPrioHighRdy != OSPrioCur) {              /* No Ctx Sw if current task is highest rdy     */
             OSTCBHighRdy = OSTCBPrioTbl[OSPrioHighRdy];
             OSCtxSwCtr++;                              /* Increment context switch counter             */
             
             // print complete
-            event[BufferIndex] = 'c';
-            from[BufferIndex] = OSPrioCur;
-            to[BufferIndex] = OSPrioHighRdy;
-            TimeTick[BufferIndex] = OSTimeGet();
-            v[BufferIndex] = 'n';
-            BufferIndex++;
-            BufferIndex %= 511;
+            TimeTick[index] = OSTime;
+            event[index] = 'c';
+            from[index] = OSPrioCur;
+            to[index] = OSPrioHighRdy;
+            v[index] = 'n';
+            index++;
+            index %= 256;
 
             OS_TASK_SW();                              /* Perform a context switch                     */
         }

@@ -410,9 +410,7 @@ typedef struct os_tcb {
 #endif
 // lab1 insert to compute precisely task comsumption time
 // fuck you why you must here, I put it at first line it will be crash  
-    INT8S          computeticks;
-    INT8S          violate;
-    INT32U         deadline;
+    INT8S         computeticks;
     
 } OS_TCB;
 
@@ -426,7 +424,7 @@ OS_EXT INT32U TimeTick[256];
 OS_EXT INT8U event[256];
 OS_EXT INT8U from[256];
 OS_EXT INT8U to[256];
-OS_EXT INT8U BufferIndex;
+OS_EXT INT8U index;
 OS_EXT char v[256];
 
 OS_EXT  INT32U            OSCtxSwCtr;               /* Counter of number of context switches           */
