@@ -14,7 +14,7 @@ ECHO * Note(s)     : 1) This file assume that we use a MAKE utility.
 ECHO *******************************************************************************
 ECHO *
 ECHO ON
-DEL test.exe
+
 DEL ..\OBJ\UCOS_II.OBJ
 
 MD    ..\WORK

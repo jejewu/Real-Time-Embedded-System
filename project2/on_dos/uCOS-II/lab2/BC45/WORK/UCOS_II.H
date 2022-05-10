@@ -412,6 +412,7 @@ typedef struct os_tcb {
 // fuck you why you must here, I put it at first line it will be crash  
     INT8S          computeticks;
     INT8S          violate;
+    INT32U         deadline;
     
 } OS_TCB;
 

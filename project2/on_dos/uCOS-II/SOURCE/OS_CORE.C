@@ -175,7 +175,9 @@ void  OSIntExit (void)
 #if OS_CRITICAL_METHOD == 3                                /* Allocate storage for CPU status register */
     OS_CPU_SR  cpu_sr;
 #endif
-    
+    OS_TCB     *ptcb;
+    int minDeadline;
+
     if (OSRunning == TRUE) {
         OS_ENTER_CRITICAL();
         if (OSIntNesting > 0) {                            /* Prevent OSIntNesting from wrapping       */
@@ -184,13 +186,26 @@ void  OSIntExit (void)
         if ((OSIntNesting == 0) && (OSLockNesting == 0)) { /* Reschedule only if all ISRs complete ... */
             
             // original compute priority  
-            // OSIntExitY    = OSUnMapTbl[OSRdyGrp];          /* ... and not locked.                      */
-            // OSPrioHighRdy = (INT8U)((OSIntExitY << 3) + OSUnMapTbl[OSRdyTbl[OSIntExitY]]);
+            OSIntExitY    = OSUnMapTbl[OSRdyGrp];          /* ... and not locked.                      */
+            OSPrioHighRdy = (INT8U)((OSIntExitY << 3) + OSUnMapTbl[OSRdyTbl[OSIntExitY]]);
             
             // compute highest priority task
+            minDeadline = 2000;
+            ptcb = OSTCBList;
+            while( ptcb->OSTCBPrio == 1 || ptcb->OSTCBPrio == 2 || ptcb->OSTCBPrio == 3){
+                if(ptcb->OSTCBStat == OS_STAT_RDY  && ptcb->OSTCBDly == 0){
+                    if(ptcb->deadline < minDeadline){
+                       minDeadline = ptcb->deadline;
+                       OSPrioHighRdy = ptcb->OSTCBPrio;
+                    }
+                }
+                ptcb = ptcb->OSTCBNext;
+            }
 
+            // PC_DispChar(6,6,'A'+OSTCBHighRdy->OSTCBPrio, DISP_FGND_YELLOW + DISP_BGND_BLUE);
 
             if (OSPrioHighRdy != OSPrioCur) {              /* No Ctx Sw if current task is highest rdy */
+                // OSTCBHighRdy  = OSTCBPrioTbl[OSPrioHighRdy];
                 OSTCBHighRdy  = OSTCBPrioTbl[OSPrioHighRdy];
                 // need change OSTCBHighRdy this variable, for OSIntCtSw need it to change somthing
                 OSCtxSwCtr++;                              /* Keep track of the number of ctx switches */
@@ -198,16 +213,16 @@ void  OSIntExit (void)
                 // print preempt here
                 if(OSTCBCur->computeticks > 0){
                     event[BufferIndex] = 'p';
-                    from[BufferIndex] = OSPrioCur;
-                    to[BufferIndex] = OSPrioHighRdy;
+                    from[BufferIndex] = OSTCBCur->OSTCBPrio;
+                    to[BufferIndex] = OSTCBHighRdy->OSTCBPrio;
                     TimeTick[BufferIndex] = OSTimeGet();
                     if(OSTCBCur->violate == 1)
                         v[BufferIndex] = 'v';
                 }
                 else{
                     event[BufferIndex] = 'c';
-                    from[BufferIndex] = OSPrioCur;
-                    to[BufferIndex] = OSPrioHighRdy;
+                    from[BufferIndex] = OSTCBCur->OSTCBPrio;
+                    to[BufferIndex] = OSTCBHighRdy->OSTCBPrio;
                     TimeTick[BufferIndex] = OSTimeGet();
                     if(OSTCBCur->violate == 1)
                         v[BufferIndex] = 'v';
@@ -321,7 +336,11 @@ void  OSStart (void)
 {
     INT8U y;
     INT8U x;
+    char temp[100];
+    int minDeadline;
 
+    OS_TCB   *ptcb;
+    ptcb = OSTCBList;
 
     if (OSRunning == FALSE) {
         // original compute priority
@@ -331,11 +350,26 @@ void  OSStart (void)
         
         // compute highest task
 
+        minDeadline = 2000;
+        ptcb = OSTCBList;
+        while(ptcb->OSTCBPrio == 1 || ptcb->OSTCBPrio == 2 || ptcb->OSTCBPrio == 3){
+            if(ptcb->OSTCBStat == OS_STAT_RDY  && ptcb->OSTCBDly == 0){
+                if(ptcb->deadline < minDeadline){
+                minDeadline = ptcb->deadline;
+                OSPrioHighRdy = ptcb->OSTCBPrio;
+                }
+            }
+            ptcb = ptcb->OSTCBNext;
+        }
+
+        // PC_DispChar(7,7,'A'+OSTCBHighRdy->OSTCBPrio, DISP_FGND_YELLOW + DISP_BGND_BLUE);
+        
         OSPrioCur     = OSPrioHighRdy;
         OSTCBHighRdy  = OSTCBPrioTbl[OSPrioHighRdy]; /* Point to highest priority task ready to run    */
         OSTCBCur      = OSTCBHighRdy;
         OSStartHighRdy();                            /* Execute target specific code to start task     */
     }
+
 }
 /*$PAGE*/
 /*
@@ -909,23 +943,38 @@ void  OS_Sched (void)
     OS_CPU_SR  cpu_sr;
 #endif    
     INT8U      y;
-
+    OS_TCB     *ptcb;
+    int minDeadline;
+    
     OS_ENTER_CRITICAL();
     if ((OSIntNesting == 0) && (OSLockNesting == 0)) { /* Sched. only if all ISRs done & not locked    */
         // original compute priority 
-        // y             = OSUnMapTbl[OSRdyGrp];          /* Get pointer to HPT ready to run              */
-        // OSPrioHighRdy = (INT8U)((y << 3) + OSUnMapTbl[OSRdyTbl[y]]);
+        y             = OSUnMapTbl[OSRdyGrp];          /* Get pointer to HPT ready to run              */
+        OSPrioHighRdy = (INT8U)((y << 3) + OSUnMapTbl[OSRdyTbl[y]]);
         
         // compute highest priority task
-        
+
+        minDeadline = 2000;
+        ptcb = OSTCBList;
+        while( ptcb->OSTCBPrio == 1 || ptcb->OSTCBPrio == 2 || ptcb->OSTCBPrio == 3){
+            if(ptcb->OSTCBStat == OS_STAT_RDY  && ptcb->OSTCBDly == 0){
+                if(ptcb->deadline < minDeadline){
+                minDeadline = ptcb->deadline;
+                OSPrioHighRdy = ptcb->OSTCBPrio;
+                }
+            }
+            ptcb = ptcb->OSTCBNext;
+        }
+
         if (OSPrioHighRdy != OSPrioCur) {              /* No Ctx Sw if current task is highest rdy     */
-            OSTCBHighRdy = OSTCBPrioTbl[OSPrioHighRdy];
+            // OSTCBHighRdy = OSTCBPrioTbl[OSPrioHighRdy];
+            OSTCBHighRdy  = OSTCBPrioTbl[OSPrioHighRdy];
             OSCtxSwCtr++;                              /* Increment context switch counter             */
             
             // print complete
             event[BufferIndex] = 'c';
-            from[BufferIndex] = OSPrioCur;
-            to[BufferIndex] = OSPrioHighRdy;
+            from[BufferIndex] = OSTCBCur->OSTCBPrio;
+            to[BufferIndex] = OSTCBHighRdy->OSTCBPrio;
             TimeTick[BufferIndex] = OSTimeGet();
             v[BufferIndex] = 'n';
             BufferIndex++;
